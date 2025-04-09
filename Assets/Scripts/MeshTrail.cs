@@ -11,7 +11,7 @@ public class MeshTrail : MonoBehaviour
     public Material mat;
     public string shaderVarRef;
     public float shaderVarRate = 0.1f;
-    public float shaderVarRefreshRate= 0.05f;
+    public float shaderVarRefreshRate = 0.05f;
 
     public float meshDestroyDelay = 3f;
     private SkinnedMeshRenderer[] skinnedMeshRenderers;
@@ -97,13 +97,13 @@ public class MeshTrail : MonoBehaviour
         mf.mesh = mesh;
         mr.material = mat;
 
-        StartCoroutine(AnimateMaterialFloat(mr.material, 0, shaderVarRate,shaderVarRefreshRate));
+        StartCoroutine(AnimateMaterialFloat(mr.material, 0, shaderVarRate, shaderVarRefreshRate));
 
-        // Destroy the trail mesh after a delay
-        Destroy(trailMeshObject, meshDestroyDelay);
+        // Start the fade-out and destroy process
+        StartCoroutine(FadeOutAndDestroy(trailMeshObject, meshDestroyDelay));
     }
 
-    IEnumerator AnimateMaterialFloat (Material mat, float goal, float rate, float refreshRate)
+    IEnumerator AnimateMaterialFloat(Material mat, float goal, float rate, float refreshRate)
     {
         float valueToAnimate = mat.GetFloat(shaderVarRef);
         while (valueToAnimate > goal)
@@ -113,4 +113,29 @@ public class MeshTrail : MonoBehaviour
             yield return new WaitForSeconds(refreshRate);
         }
     }
+
+    IEnumerator FadeOutAndDestroy(GameObject trailMeshObject, float delay)
+    {
+        // Fade out the material before destroying it
+        Material trailMaterial = trailMeshObject.GetComponent<MeshRenderer>().material;
+        Color color = trailMaterial.color;
+
+        // Gradually reduce alpha over time
+        float fadeOutDuration = 1f; // Duration for fading out
+        float fadeRate = color.a / fadeOutDuration;
+
+        while (color.a > 0)
+        {
+            color.a -= fadeRate * Time.deltaTime;
+            trailMaterial.color = color;
+            yield return null;
+        }
+
+        // Wait for the destroy delay to ensure the object is fully faded before being destroyed
+        yield return new WaitForSeconds(delay);
+
+        // Destroy the trail mesh after the fade-out and delay
+        Destroy(trailMeshObject);
+    }
 }
+
