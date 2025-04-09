@@ -9,9 +9,6 @@ public class MeshTrail : MonoBehaviour
 
     [Header("Shader Related")]
     public Material mat;
-    public string shaderVarRef;
-    public float shaderVarRate = 0.1f;
-    public float shaderVarRefreshRate = 0.05f;
 
     public float meshDestroyDelay = 3f;
     private SkinnedMeshRenderer[] skinnedMeshRenderers;
@@ -32,15 +29,13 @@ public class MeshTrail : MonoBehaviour
         skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
         if (skinnedMeshRenderers.Length == 0)
         {
-            Debug.LogError("No SkinnedMeshRenderer found on the sphere. Make sure the sphere is animated with a SkinnedMeshRenderer.");
+            Debug.LogError("No SkinnedMeshRenderer found on the object. Make sure it has at least one.");
             return;
         }
 
-        // Initialize the position and start the trail generation
         lastPosition = transform.position;
         isMoving = false;
 
-        // Start the trail process
         StartCoroutine(ActivateTrail());
     }
 
@@ -48,81 +43,54 @@ public class MeshTrail : MonoBehaviour
     {
         while (true)
         {
-            // Check if the sphere has moved since the last frame
             if (Vector3.Distance(transform.position, lastPosition) > 0.01f)
             {
                 if (!isMoving)
-                {
-                    // If the sphere starts moving, mark it and start spawning trail meshes
                     isMoving = true;
-                }
 
-                // Update last position
                 lastPosition = transform.position;
-
-                // Spawn a mesh trail at the specified position
                 SpawnTrailMesh();
             }
             else
             {
                 if (isMoving)
-                {
-                    // If the sphere stops moving, stop spawning trails
                     isMoving = false;
-                }
             }
 
-            // Wait for the next spawn cycle
             yield return new WaitForSeconds(meshRefreshRate);
         }
     }
 
     void SpawnTrailMesh()
     {
-        // Create new GameObject for trail mesh
-        GameObject trailMeshObject = new GameObject();
+        GameObject trailMeshObject = new GameObject("TrailMesh");
         trailMeshObject.transform.SetPositionAndRotation(positionToSpawn.position, positionToSpawn.rotation);
 
-        // Add MeshRenderer and MeshFilter to the trail object
         MeshRenderer mr = trailMeshObject.AddComponent<MeshRenderer>();
         MeshFilter mf = trailMeshObject.AddComponent<MeshFilter>();
 
-        // Create a new mesh, bake the current mesh from SkinnedMeshRenderer
         Mesh mesh = new Mesh();
-        for (int i = 0; i < skinnedMeshRenderers.Length; i++)
-        {
-            skinnedMeshRenderers[i].BakeMesh(mesh);
-        }
+        skinnedMeshRenderers[0].BakeMesh(mesh); // Use the first SkinnedMeshRenderer
 
         mf.mesh = mesh;
-        mr.material = mat;
 
-        StartCoroutine(AnimateMaterialFloat(mr.material, 0, shaderVarRate, shaderVarRefreshRate));
+        // Clone material to avoid shared instance issues
+        Material matInstance = new Material(mat);
+        mr.material = matInstance;
 
-        // Start the fade-out and destroy process
         StartCoroutine(FadeOutAndDestroy(trailMeshObject, meshDestroyDelay));
-    }
-
-    IEnumerator AnimateMaterialFloat(Material mat, float goal, float rate, float refreshRate)
-    {
-        float valueToAnimate = mat.GetFloat(shaderVarRef);
-        while (valueToAnimate > goal)
-        {
-            valueToAnimate -= rate;
-            mat.SetFloat(shaderVarRef, valueToAnimate);
-            yield return new WaitForSeconds(refreshRate);
-        }
     }
 
     IEnumerator FadeOutAndDestroy(GameObject trailMeshObject, float delay)
     {
-        // Fade out the material before destroying it
         Material trailMaterial = trailMeshObject.GetComponent<MeshRenderer>().material;
         Color color = trailMaterial.color;
 
-        // Gradually reduce alpha over time
-        float fadeOutDuration = 1f; // Duration for fading out
+        float fadeOutDuration = 1f;
         float fadeRate = color.a / fadeOutDuration;
+
+        // Wait before starting the fade-out (optional)
+        yield return new WaitForSeconds(delay - fadeOutDuration);
 
         while (color.a > 0)
         {
@@ -131,11 +99,6 @@ public class MeshTrail : MonoBehaviour
             yield return null;
         }
 
-        // Wait for the destroy delay to ensure the object is fully faded before being destroyed
-        yield return new WaitForSeconds(delay);
-
-        // Destroy the trail mesh after the fade-out and delay
         Destroy(trailMeshObject);
     }
 }
-
